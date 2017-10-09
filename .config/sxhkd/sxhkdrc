@@ -1,0 +1,128 @@
+
+#                  ██      ██          ██
+#                 ░██     ░██         ░██
+#   ██████ ██   ██░██     ░██  ██     ░██
+#  ██░░░░ ░░██ ██ ░██████ ░██ ██   ██████
+# ░░█████  ░░███  ░██░░░██░████   ██░░░██
+#  ░░░░░██  ██░██ ░██  ░██░██░██ ░██  ░██
+#  ██████  ██ ░░██░██  ░██░██░░██░░██████
+# ░░░░░░  ░░   ░░ ░░   ░░ ░░  ░░  ░░░░░░
+
+# reload sxhkd config
+alt + shift + s
+    pkill -USR1 -x sxhkd
+
+# quit herbstluftwm
+super + control + q
+    herbstclient quit
+
+# handle panels and reloading
+super + shift + r
+    pkill -USR1 -x sxhkd; pkill panel; herbstclient reload
+
+# close windows
+alt + shift + c
+    herbstclient close_and_remove
+
+# kill panel properly and quit
+alt + shift + q
+    herbstclient close; pkill lemonbar; pkill panel
+
+#
+# focus
+#
+
+#super + u
+    herbstclient cycle_monitor
+
+# cycle throw windows and frames
+alt + {j,k}
+    herbstclient cycle_all {1,-1}
+
+alt + {h,l}
+    herbstclient resize {left +0.01, right +0.01}
+
+alt + {Left,Down,Up,Right}
+    herbstclient focus {left,down,up,right}
+
+# moving clients
+alt + shift + {Left,Down,Up,Right,h,j,k,l}
+    herbstclient shift {left,down,up,right,left,down,up,right}
+
+# window splitting
+alt + {o,i,u}
+    herbstclient split {bottom 0.5,right 0.5, explode}
+
+# resizing frames
+alt + ctrl + {Left,Down,Up,Right}
+    herbstclient resize {left +0.01,down +0.01,up +0.01,right +0.01}
+                                     
+# cycle through tags
+alt + {Tab,Tab}
+    herbstclient spawn tagswitch.sh {next, prev}
+
+super + space
+    herbstclient spawn swap auto 
+    
+# layouting
+alt + {r,f,shift+f,shift+m,shift+p}
+    herbstclient {remove,floating toggle, fullscreen toggle, pseudotile toggle}
+                                   
+# shift client to specified monitor
+alt + {apostrophe,section}
+    herbstclient shift_to_monitor {1,0}
+                                                     
+#
+# wm independent hotkeys
+#
+
+# toggle redshift
+alt + F9
+    pkill -USR1 redshift
+
+# Terminal Emulator
+alt + Return
+	/home/madgrid/.config/st/st
+
+# Program Launcher
+alt + p
+   rofi -show run
+
+
+# Custom action
+alt + shift + d
+    mpc del 0
+
+# brightness up
+alt + F6
+    light -A 5
+
+# brightness keys
+alt + F5
+    light -U 5
+
+alt + F2
+	amixer set Master 2%-
+
+# volume keys
+alt + F1
+	amixer set Master toggle
+
+alt + F3
+	amixer set Master 2%+
+
+alt + ctrl + {Up,Down}
+    mpc volume {+,-}3
+
+alt + ctrl + {Left,Right}
+    mpc {prev,next}
+
+mod5 + w
+    google-chrome
+
+mod5 + {r,m,n}
+    termite -e {ranger,mutt,ncmpcpp}
+
+mod5 + twosuperior
+    mpc {pause,play}
+
