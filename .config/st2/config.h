@@ -5,7 +5,7 @@
  *
  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
-static char font[] = "Liberation Mono:pixelsize=12:antialias=true:autohint=true";
+static char font[] = "Iosevka:pixelsize=18:antialias=true:autohint=true";
 static int borderpx = 2;
 
 /*
@@ -65,35 +65,49 @@ static int bellvolume = 0;
 /* default TERM value */
 static char termname[] = "st-256color";
 
+/*
+ * spaces per tab
+ *
+ * When you are changing this value, don't forget to adapt the »it« value in
+ * the st.info and appropriately install the st.info in the environment where
+ * you use this st version.
+ *
+ *	it#$tabspaces,
+ *
+ * Secondly make sure your kernel is not expanding tabs. When running `stty
+ * -a` »tab0« should appear. You can tell the terminal to not expand tabs by
+ *  running following command:
+ *
+ *	stty tabs
+ */
 static unsigned int tabspaces = 8;
 
 /* Terminal colors (16 first used in escape sequence) */
 static const char *colorname[] = {
-	/* 8 normal colors */
-	"black",
-	"red3",
-	"green3",
-	"yellow3",
-	"blue2",
-	"magenta3",
-	"cyan3",
-	"gray90",
+  /* 8 normal colors */
+  [0] = "#131313", /* black   */
+  [1] = "#2d2d2d", /* red     */
+  [2] = "#4c3a3d", /* green   */
+  [3] = "#4e4e4e", /* yellow  */
+  [4] = "#6f6f6f", /* blue    */
+  [5] = "#909090", /* magenta */
+  [6] = "#aaa998", /* cyan    */
+  [7] = "#b1b1b1", /* white   */
 
-	/* 8 bright colors */
-	"gray50",
-	"red",
-	"green",
-	"yellow",
-	"#5c5cff",
-	"magenta",
-	"cyan",
-	"white",
+  /* 8 bright colors */
+  [8]  = "#d1d1d1", /* black   */
+  [9]  = "#d2c3ad", /* red     */
+  [10] = "#df9767", /* green   */
+  [11] = "#e1e1e1", /* yellow  */
+  [12] = "#ededed", /* blue    */
+  [13] = "#ed4b19", /* magenta */
+  [14] = "#f2361e", /* cyan    */
+  [15] = "#fa390f", /* white   */
 
-	[255] = 0,
 
-	/* more colors can be added after 255 to use with DefaultXX */
-	"#cccccc",
-	"#555555",
+  /* special colors */
+  [256] = "#101010", /* background */
+  [257] = "#ffffff", /* foreground */
 };
 
 
@@ -101,10 +115,12 @@ static const char *colorname[] = {
  * Default colors (colorname index)
  * foreground, background, cursor, reverse cursor
  */
-static unsigned int defaultfg = 7;
-static unsigned int defaultbg = 0;
-static unsigned int defaultcs = 256;
+static unsigned int defaultfg = 257;
+static unsigned int defaultbg = 256;
+static unsigned int defaultcs = 257;
+
 static unsigned int defaultrcs = 257;
+
 
 /*
  * Default shape of cursor
@@ -127,7 +143,7 @@ static unsigned int mousebg = 0;
  * will reverse too. Another logic would only make the simple feature too
  * complex.
  */
-static unsigned int defaultitalic = 11;
+static unsigned int defaultitalic = 7;
 static unsigned int defaultunderline = 7;
 
 /*
@@ -157,7 +173,6 @@ static Shortcut shortcuts[] = {
 	{ MODKEY|ShiftMask,     XK_C,           clipcopy,       {.i =  0} },
 	{ MODKEY|ShiftMask,     XK_V,           clippaste,      {.i =  0} },
 	{ MODKEY,               XK_Num_Lock,    numlock,        {.i =  0} },
-    { XK_NO_MOD,            XK_F11,         togglefullscreen,   {.i =  0} },
 };
 
 /*
@@ -304,6 +319,7 @@ static Key key[] = {
 	{ XK_Delete,        XK_ANY_MOD,     "\033[P",       -1,    0,    0},
 	{ XK_Delete,        XK_ANY_MOD,     "\033[3~",      +1,    0,    0},
 	{ XK_BackSpace,     XK_NO_MOD,      "\177",          0,    0,    0},
+	{ XK_BackSpace,     Mod1Mask,       "\033\177",      0,    0,    0},
 	{ XK_Home,          ShiftMask,      "\033[2J",       0,   -1,    0},
 	{ XK_Home,          ShiftMask,      "\033[1;2H",     0,   +1,    0},
 	{ XK_Home,          XK_ANY_MOD,     "\033[H",        0,   -1,    0},

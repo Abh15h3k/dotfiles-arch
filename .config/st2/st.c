@@ -61,7 +61,6 @@ char *argv0;
 #define XK_ANY_MOD    UINT_MAX
 #define XK_NO_MOD     0
 #define XK_SWITCH_MOD (1<<13)
-#define OPAQUE 0Xff
 
 /* macros */
 #define MIN(a, b)		((a) < (b) ? (a) : (b))
@@ -75,7 +74,6 @@ char *argv0;
 #define ISCONTROL(c)		(ISCONTROLC0(c) || ISCONTROLC1(c))
 #define ISDELIM(u)		(utf8strchr(worddelimiters, u) != NULL)
 #define LIMIT(x, a, b)		(x) = (x) < (a) ? (a) : (x) > (b) ? (b) : (x)
-#define USE_ARGB (alpha != OPAQUE && opt_embed == NULL)
 #define ATTRCMP(a, b)		((a).mode != (b).mode || (a).fg != (b).fg || \
 				(a).bg != (b).bg)
 #define IS_SET(flag)		((term.mode & (flag)) != 0)
@@ -88,6 +86,7 @@ char *argv0;
 #define TRUERED(x)		(((x) & 0xff0000) >> 8)
 #define TRUEGREEN(x)		(((x) & 0xff00))
 #define TRUEBLUE(x)		(((x) & 0xff) << 8)
+
 
 enum glyph_attribute {
 	ATTR_NULL       = 0,
@@ -255,7 +254,7 @@ typedef struct {
 	Colormap cmap;
 	Window win;
 	Drawable buf;
-	Atom xembed, wmdeletewin, netwmname, netwmpid, netwmstate, netwmfullscreen;
+	Atom xembed, wmdeletewin, netwmname, netwmpid;
 	XIM xim;
 	XIC xic;
 	Draw draw;
@@ -269,7 +268,6 @@ typedef struct {
 	int w, h; /* window width and height */
 	int ch; /* char height */
 	int cw; /* char width  */
-	int depth; /* bit depth */
 	char state; /* focus, redraw, visible */
 	int cursor; /* cursor style */
 } XWindow;
@@ -338,7 +336,6 @@ static void printsel(const Arg *);
 static void printscreen(const Arg *) ;
 static void toggleprinter(const Arg *);
 static void sendbreak(const Arg *);
-static void togglefullscreen(const Arg *);
 
 /* Config.h for applying patches and the configuration. */
 #include "config.h"
@@ -3139,7 +3136,8 @@ xresize(int col, int row)
 	xw.th = MAX(1, row * xw.ch);
 
 	XFreePixmap(xw.dpy, xw.buf);
-	xw.buf = XCreatePixmap(xw.dpy, xw.win, xw.w, xw.h, xw.depth);
+	xw.buf = XCreatePixmap(xw.dpy, xw.win, xw.w, xw.h,
+			DefaultDepth(xw.dpy, xw.scr));
 	XftDrawChange(xw.draw, xw.buf);
 	xclear(0, 0, xw.w, xw.h);
 }
@@ -3193,14 +3191,6 @@ xloadcols(void)
 			else
 				die("Could not allocate color %d\n", i);
 		}
-
-    /* set alpha value of bg color */
-	if (USE_ARGB) {
-		dc.col[defaultbg].color.alpha = (0xffff * alpha) / OPAQUE; //0xcccc;
-		dc.col[defaultbg].pixel &= 0x00111111;
-		dc.col[defaultbg].pixel |= alpha << 24; // 0xcc000000;
-	}
-
 	loaded = 1;
 }
 
@@ -3453,38 +3443,7 @@ xinit(void)
 	if (!(xw.dpy = XOpenDisplay(NULL)))
 		die("Can't open display\n");
 	xw.scr = XDefaultScreen(xw.dpy);
-	xw.depth = (USE_ARGB)? 32: XDefaultDepth(xw.dpy, xw.scr);
-	if (! USE_ARGB)
-		xw.vis = XDefaultVisual(xw.dpy, xw.scr);
-	else {
-		XVisualInfo *vis;
-		XRenderPictFormat *fmt;
-		int nvi;
-		int i;
-
-		XVisualInfo tpl = {
-			.screen = xw.scr,
-			.depth = 32,
-			.class = TrueColor
-		};
-
-		vis = XGetVisualInfo(xw.dpy, VisualScreenMask | VisualDepthMask | VisualClassMask, &tpl, &nvi);
-		xw.vis = NULL;
-		for(i = 0; i < nvi; i ++) {
-			fmt = XRenderFindVisualFormat(xw.dpy, vis[i].visual);
-			if (fmt->type == PictTypeDirect && fmt->direct.alphaMask) {
-				xw.vis = vis[i].visual;
-				break;
-			}
-		}
-
-		XFree(vis);
-
-		if (! xw.vis) {
-			fprintf(stderr, "Couldn't find ARGB visual.\n");
-			exit(1);
-		}
-	}
+	xw.vis = XDefaultVisual(xw.dpy, xw.scr);
 
 	/* font */
 	if (!FcInit())
@@ -3494,10 +3453,7 @@ xinit(void)
 	xloadfonts(usedfont, 0);
 
 	/* colors */
-	if (! USE_ARGB)
-		xw.cmap = XDefaultColormap(xw.dpy, xw.scr);
-	else
-		xw.cmap = XCreateColormap(xw.dpy, XRootWindow(xw.dpy, xw.scr), xw.vis, None);
+	xw.cmap = XDefaultColormap(xw.dpy, xw.scr);
 	xloadcols();
 
 	/* adjust fixed window geometry */
@@ -3520,17 +3476,16 @@ xinit(void)
 	if (!(opt_embed && (parent = strtol(opt_embed, NULL, 0))))
 		parent = XRootWindow(xw.dpy, xw.scr);
 	xw.win = XCreateWindow(xw.dpy, parent, xw.l, xw.t,
-			xw.w, xw.h, 0, xw.depth, InputOutput,
+			xw.w, xw.h, 0, XDefaultDepth(xw.dpy, xw.scr), InputOutput,
 			xw.vis, CWBackPixel | CWBorderPixel | CWBitGravity
 			| CWEventMask | CWColormap, &xw.attrs);
 
 	memset(&gcvalues, 0, sizeof(gcvalues));
 	gcvalues.graphics_exposures = False;
-	xw.buf = XCreatePixmap(xw.dpy, xw.win, xw.w, xw.h, xw.depth);
-	dc.gc = XCreateGC(xw.dpy,
-			(USE_ARGB)? xw.buf: parent,
-			GCGraphicsExposures,
+	dc.gc = XCreateGC(xw.dpy, parent, GCGraphicsExposures,
 			&gcvalues);
+	xw.buf = XCreatePixmap(xw.dpy, xw.win, xw.w, xw.h,
+			DefaultDepth(xw.dpy, xw.scr));
 	XSetForeground(xw.dpy, dc.gc, dc.col[defaultbg].pixel);
 	XFillRectangle(xw.dpy, xw.buf, dc.gc, 0, 0, xw.w, xw.h);
 
@@ -3577,9 +3532,6 @@ xinit(void)
 	xw.wmdeletewin = XInternAtom(xw.dpy, "WM_DELETE_WINDOW", False);
 	xw.netwmname = XInternAtom(xw.dpy, "_NET_WM_NAME", False);
 	XSetWMProtocols(xw.dpy, xw.win, &xw.wmdeletewin, 1);
-
-    	xw.netwmstate = XInternAtom(xw.dpy, "_NET_WM_STATE", False);
-    	xw.netwmfullscreen = XInternAtom(xw.dpy, "_NET_WM_STATE_FULLSCREEN", False);
 
 	xw.netwmpid = XInternAtom(xw.dpy, "_NET_WM_PID", False);
 	XChangeProperty(xw.dpy, xw.win, xw.netwmpid, XA_CARDINAL, 32,
@@ -3767,7 +3719,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 
 	/* Change basic system colors [0-7] to bright system colors [8-15] */
 	if ((base.mode & ATTR_BOLD_FAINT) == ATTR_BOLD && BETWEEN(base.fg, 0, 7))
-		fg = &dc.col[base.fg];
+		fg = &dc.col[base.fg + 8];
 
 	if (IS_SET(MODE_REVERSE)) {
 		if (fg == &dc.col[defaultfg]) {
@@ -4246,39 +4198,6 @@ cresize(int width, int height)
 
 	tresize(col, row);
 	xresize(col, row);
-}
-
-void 
-togglefullscreen(const Arg *arg)
-{
-    Atom type;
-    int format, status;
-    unsigned long nItem, bytesAfter;
-    unsigned char *properties = NULL;
-
-    Atom wmstateremove = XInternAtom(xw.dpy,"_NET_WM_STATE_REMOVE",False);
-
-
-    status = XGetWindowProperty(xw.dpy, xw.win, xw.netwmstate, 0, (~0L), 
-            False, AnyPropertyType, &type, &format, &nItem, &bytesAfter, &properties);
-    if (status == Success && properties)
-	{
-		Atom prop = ((Atom *)properties)[0];
-        XEvent e;
-        memset( &e, 0, sizeof(e) );
-        e.type = ClientMessage;
-        e.xclient.window = xw.win;
-        e.xclient.message_type = xw.netwmstate;
-        e.xclient.format = 32;
-        e.xclient.data.l[0] = (prop != xw.netwmfullscreen) ? 1: wmstateremove;
-        e.xclient.data.l[1] = xw.netwmfullscreen;
-        e.xclient.data.l[2] = 0;
-        e.xclient.data.l[3] = 0;
-        e.xclient.data.l[4] = 0;
-        XSendEvent(xw.dpy, DefaultRootWindow(xw.dpy), 0,
-                SubstructureNotifyMask|SubstructureRedirectMask, &e);
-	}
-
 }
 
 void
